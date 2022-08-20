@@ -1,0 +1,50 @@
+#!/bin/python3
+import subprocess
+import urllib.request
+import sys
+import re
+
+# Get html code of a page
+def get_page(url):
+	return urllib.request.urlopen(url).read().decode('ascii', 'ignore')
+
+# Run external program to download youtube link
+def download_song(url):
+	while True:
+		state = subprocess.run(['youtube-dl', url,
+							'--audio-format','mp3', '--audio-quality',
+											'0', '--extract-audio'])
+		if state.returncode == 0:
+			break
+# Check if user passed no input
+if len(sys.argv) == 1:
+	exit()
+
+playlist_data = get_page(sys.argv[1])
+
+print('Getting songs...')
+
+# Find matching texts(urls) in the html data
+song_urls = re.findall('https://open.spotify.com/track/[^"]+',
+														playlist_data)
+
+for song_url in song_urls:
+	song_data = get_page(song_url)
+	
+	# Find matching texts(title) in the html data
+	song_title = re.search('<title>[^<]+ \| Spotify</title>',
+														song_data)\
+														.group()[7:-18]
+	print(f'Getting song {song_title}...')
+	
+	# Replace space with '+' for youtube search
+	while ' ' in song_title:
+		song_title = song_title.replace(' ','+')
+	
+	youtube_search = get_page('https://www.youtube.com/results?search_'
+												+'query='+song_title)
+	
+	# Find matching texts(video id) in the html data									
+	song = re.search('"videoId":"[^"]+',youtube_search).group()[11:]
+	
+	download_song(song)
